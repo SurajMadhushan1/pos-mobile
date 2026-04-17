@@ -6,9 +6,9 @@ import {
   TouchableOpacity, 
   StyleSheet, 
   KeyboardAvoidingView, 
-  Platform,
-  SafeAreaView
+  Platform
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
@@ -28,7 +28,7 @@ export default function LoginScreen({ navigation }: Props) {
 
   const handleLogin = () => {
     // Navigate to Main Tabs after successful login
-    navigation.replace('MainTabs');
+    navigation.replace('MainTabs', { screen: 'Shop' });
   };
 
   return (

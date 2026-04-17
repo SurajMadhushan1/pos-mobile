@@ -15,12 +15,33 @@ import SignupScreen from '../screens/SignupScreen';
 import POSHomeScreen from '../screens/POSHomeScreen';
 import SalesScreen from '../screens/SalesScreen';
 import CustomersScreen from '../screens/CustomersScreen';
+import CustomerDetailsScreen from '../screens/CustomerDetailsScreen';
+import ReturnBillsScreen from '../screens/ReturnBillsScreen';
+import CreditSalesReportScreen from '../screens/CreditSalesReportScreen';
+import UserBillingScreen from '../screens/UserBillingScreen';
+import PaymentDetailsScreen from '../screens/PaymentDetailsScreen';
+import BillInventoryHistoryScreen from '../screens/BillInventoryHistoryScreen';
+import UserSettingsScreen from '../screens/UserSettingsScreen';
+import AboutAppScreen from '../screens/AboutAppScreen';
+import AppSettingsScreen from '../screens/AppSettingsScreen';
 import InventoryScreen from '../screens/InventoryScreen';
 import SalesAnalyticsScreen from '../screens/SalesAnalyticsScreen';
 import ReceiptScreen from '../screens/ReceiptScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ScannerScreen from '../screens/ScannerScreen';
 import DownloadReportScreen from '../screens/DownloadReportScreen';
+import InventoryDownloadReportScreen from '../screens/InventoryDownloadReportScreen';
+import CategoryAnalyticsScreen from '../screens/CategoryAnalyticsScreen';
+import ProductAnalyticsScreen from '../screens/ProductAnalyticsScreen';
+import ShopProfileScreen from '../screens/ShopProfileScreen';
+import SubAdminsScreen from '../screens/SubAdminsScreen';
+import SetPrivilegesScreen from '../screens/SetPrivilegesScreen';
+import SuppliersScreen from '../screens/SuppliersScreen';
+import SupplierProductsScreen from '../screens/SupplierProductsScreen';
+import SupplierPurchaseOrdersScreen from '../screens/SupplierPurchaseOrdersScreen';
+import CreatePurchaseOrderScreen from '../screens/CreatePurchaseOrderScreen';
+import ProductListScreen from '../screens/ProductListScreen';
+import SupplierGRNScreen from '../screens/SupplierGRNScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -115,8 +136,29 @@ export default function Navigation() {
         <Stack.Screen name="MainTabs" component={MainTabs} />
         <Stack.Screen name="Receipt" component={ReceiptScreen} />
         <Stack.Screen name="Customers" component={CustomersScreen} />
+        <Stack.Screen name="CustomerDetails" component={CustomerDetailsScreen} />
+        <Stack.Screen name="ReturnBills" component={ReturnBillsScreen} />
+        <Stack.Screen name="CreditSalesReport" component={CreditSalesReportScreen} />
+        <Stack.Screen name="UserBilling" component={UserBillingScreen} />
+        <Stack.Screen name="PaymentDetails" component={PaymentDetailsScreen} />
+        <Stack.Screen name="BillInventoryHistory" component={BillInventoryHistoryScreen} />
+        <Stack.Screen name="UserSettings" component={UserSettingsScreen} />
+        <Stack.Screen name="AboutApp" component={AboutAppScreen} />
+        <Stack.Screen name="AppSettings" component={AppSettingsScreen} />
         <Stack.Screen name="SalesAnalytics" component={SalesAnalyticsScreen} />
         <Stack.Screen name="DownloadReport" component={DownloadReportScreen} />
+        <Stack.Screen name="InventoryDownloadReport" component={InventoryDownloadReportScreen} />
+        <Stack.Screen name="CategoryAnalytics" component={CategoryAnalyticsScreen} />
+        <Stack.Screen name="ProductAnalytics" component={ProductAnalyticsScreen} />
+        <Stack.Screen name="ShopProfile" component={ShopProfileScreen} />
+        <Stack.Screen name="SubAdmins" component={SubAdminsScreen} />
+        <Stack.Screen name="SetPrivileges" component={SetPrivilegesScreen} />
+        <Stack.Screen name="Suppliers" component={SuppliersScreen} />
+        <Stack.Screen name="SupplierProducts" component={SupplierProductsScreen} />
+        <Stack.Screen name="SupplierPurchaseOrders" component={SupplierPurchaseOrdersScreen} />
+        <Stack.Screen name="CreatePurchaseOrder" component={CreatePurchaseOrderScreen} />
+        <Stack.Screen name="ProductList" component={ProductListScreen} />
+        <Stack.Screen name="SupplierGRN" component={SupplierGRNScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

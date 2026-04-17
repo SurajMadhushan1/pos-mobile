@@ -1,208 +1,257 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Modal, TouchableWithoutFeedback, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
+import { useCurrency } from '../context/CurrencyContext';
+import { colors } from '../theme/colors';
 
 export default function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const [shopName, setShopName] = useState('Disanayaka Stores');
-  const [email, setEmail] = useState('admin@disanayaka.com');
-  const [phone, setPhone] = useState('077 123 4567');
+  const { currency, setCurrency } = useCurrency();
+  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
+
+  const MENU_ITEMS = [
+    { id: '0', title: 'Profile', icon: 'person-outline', action: () => navigation.navigate('ShopProfile') as any },
+    { id: '1', title: 'Home', icon: 'home-outline', action: () => navigation.navigate('MainTabs', { screen: 'Shop' }) as any },
+    { id: '2', title: 'Currency Settings', icon: 'cash-outline', action: () => setShowCurrencyModal(true) },
+    { id: '3', title: 'Sub admins', icon: 'people-outline', action: () => navigation.navigate('SubAdmins') as any },
+    { id: '4', title: 'Manage Customers', icon: 'person-add-outline', action: () => navigation.navigate('Customers') },
+    { id: '5', title: 'Billing', icon: 'receipt-outline', action: () => navigation.navigate('UserBilling') as any },
+    { id: '7', title: 'Bill & Inventory History', icon: 'time-outline', action: () => navigation.navigate('BillInventoryHistory') as any },
+    { id: '8', title: 'User Settings', icon: 'person-outline', action: () => navigation.navigate('UserSettings') as any },
+    { id: '9', title: 'App Settings', icon: 'settings-outline', action: () => navigation.navigate('AppSettings') as any },
+    { id: '11', title: 'About App', icon: 'apps-outline', action: () => navigation.navigate('AboutApp') as any },
+    { id: '12', title: 'Logout', icon: 'log-out-outline', action: () => {
+      Alert.alert(
+        'Confirm Logout',
+        'Are you sure you want to log out?',
+        [
+          { text: 'No', style: 'cancel' },
+          { text: 'Yes', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' as never }] }) }
+        ]
+      );
+    } },
+  ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.headerTitle}>Shop Profile</Text>
-
-        {/* Logo Section */}
-        <View style={styles.logoSection}>
-          <View style={styles.logoCircle}>
-            <Ionicons name="storefront" size={40} color={colors.primary} />
-            <TouchableOpacity style={styles.editLogoBtn}>
-              <Ionicons name="camera" size={16} color={colors.surface} />
-            </TouchableOpacity>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.closeButton} onPress={() => navigation.navigate('MainTabs', { screen: 'Shop' } as any)}>
+          <Ionicons name="close" size={28} color="#666" />
+        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <Text style={styles.langText}>ENG</Text>
+          <Ionicons name="globe-outline" size={22} color={colors.primary} style={{ marginLeft: 6, marginRight: 16 }} />
+          <View style={styles.notificationWrapper}>
+            <Ionicons name="notifications-outline" size={24} color={colors.primary} />
+            <View style={styles.notificationDot} />
           </View>
-          <Text style={styles.logoHint}>Tap to change shop logo</Text>
+        </View>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Profile Info */}
+        <View style={styles.profileSection}>
+          <View style={styles.avatarContainer}>
+            {/* Using a placeholder mimicking the graphic's SHOP cart logo */}
+            <View style={styles.avatarCircle}>
+              <Ionicons name="cart" size={32} color="#15803D" />
+              <Text style={styles.avatarText}>SHOP</Text>
+            </View>
+          </View>
+          <Text style={styles.profileName}>SSS</Text>
+          <Text style={styles.profileRole}>jithu</Text>
         </View>
 
-        {/* Settings Form */}
-        <View style={styles.formContainer}>
-          <Text style={styles.sectionLabel}>Shop Information</Text>
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Shop Name</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="business-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
-              <TextInput 
-                style={styles.input}
-                value={shopName}
-                onChangeText={setShopName}
-                placeholder="Enter shop name"
-              />
-            </View>
-          </View>
+        <View style={styles.divider} />
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Email Address</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="mail-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
-              <TextInput 
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                placeholder="Enter email address"
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Phone Number</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="call-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
-              <TextInput 
-                style={styles.input}
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-                placeholder="Enter phone number"
-              />
-            </View>
-          </View>
-
-          <TouchableOpacity style={styles.saveBtn}>
-            <Text style={styles.saveBtnText}>Save Changes</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Navigation Menus */}
+        {/* Menu Items */}
         <View style={styles.menuContainer}>
-          <Text style={styles.sectionLabel}>Management</Text>
-          
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => navigation.navigate('Customers')}
-          >
-            <View style={[styles.menuIconBox, { backgroundColor: '#E0F2FE' }]}>
-              <Ionicons name="people" size={20} color="#0EA5E9" />
-            </View>
-            <Text style={styles.menuItemText}>Manage Customers</Text>
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={[styles.menuIconBox, { backgroundColor: '#FCE7F3' }]}>
-              <Ionicons name="settings" size={20} color="#EC4899" />
-            </View>
-            <Text style={styles.menuItemText}>App Settings</Text>
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0, marginTop: 24 }]}>
-            <View style={[styles.menuIconBox, { backgroundColor: '#FEE2E2' }]}>
-              <Ionicons name="log-out" size={20} color="#EF4444" />
-            </View>
-            <Text style={[styles.menuItemText, { color: '#EF4444' }]}>Logout</Text>
-          </TouchableOpacity>
+          {MENU_ITEMS.map((item) => (
+            <TouchableOpacity key={item.id} style={styles.menuItem} onPress={item.action}>
+              <View style={styles.iconContainer}>
+                 <Ionicons name={item.icon as any} size={22} color={colors.primary} />
+              </View>
+              <Text style={styles.menuItemText}>{item.title}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
-        
       </ScrollView>
+
+      {/* Currency Settings Modal */}
+      <Modal visible={showCurrencyModal} transparent animationType="fade">
+        <TouchableWithoutFeedback onPress={() => setShowCurrencyModal(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContainer}>
+                <Text style={styles.modalTitle}>Select Currency</Text>
+                
+                <TouchableOpacity 
+                  style={[styles.currencyOption, currency === 'LKR' && styles.currencyOptionActive]}
+                  onPress={() => { setCurrency('LKR'); setShowCurrencyModal(false); }}
+                >
+                  <Text style={[styles.currencyText, currency === 'LKR' && styles.currencyTextActive]}>LKR (Rs.)</Text>
+                  {currency === 'LKR' && <Ionicons name="checkmark-circle" size={24} color={colors.primary} />}
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.currencyOption, currency === 'USD' && styles.currencyOptionActive]}
+                  onPress={() => { setCurrency('USD'); setShowCurrencyModal(false); }}
+                >
+                  <Text style={[styles.currencyText, currency === 'USD' && styles.currencyTextActive]}>USD ($)</Text>
+                  {currency === 'USD' && <Ionicons name="checkmark-circle" size={24} color={colors.primary} />}
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  scrollContent: { padding: 20, paddingBottom: Platform.OS === 'ios' ? 100 : 80 },
-  headerTitle: { fontSize: 28, fontWeight: '800', color: colors.textDark, marginBottom: 24 },
-  
-  logoSection: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  logoCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#F3E8FF',
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
-    position: 'relative',
   },
-  editLogoBtn: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: colors.primary,
-    width: 32,
-    height: 32,
+  modalContainer: {
+    width: '80%',
+    backgroundColor: '#FFF',
     borderRadius: 16,
-    justifyContent: 'center',
+    padding: 24,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  currencyOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: colors.background,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 12,
   },
-  logoHint: { fontSize: 13, color: colors.textMuted },
-  
-  formContainer: {
-    backgroundColor: colors.surface,
-    padding: 20,
-    borderRadius: 20,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
-    marginBottom: 24,
+  currencyOptionActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight + '20',
   },
-  sectionLabel: { fontSize: 16, fontWeight: '700', color: colors.textDark, marginBottom: 16, letterSpacing: -0.5 },
-  inputGroup: { marginBottom: 16 },
-  inputLabel: { fontSize: 13, color: colors.textMuted, marginBottom: 6, fontWeight: '500' },
-  inputWrapper: {
+  currencyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  currencyTextActive: {
+    color: colors.primary,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#FDFEFF',
+  },
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  inputIcon: { marginRight: 10 },
-  input: {
-    flex: 1,
-    height: 48,
-    fontSize: 15,
-    color: colors.textDark,
+  closeButton: {
+    padding: 4,
   },
-  saveBtn: {
-    backgroundColor: colors.primary,
-    paddingVertical: 14,
-    borderRadius: 12,
+  headerRight: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
   },
-  saveBtnText: { color: colors.surface, fontSize: 16, fontWeight: 'bold' },
-
+  langText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  notificationWrapper: {
+    position: 'relative',
+    marginRight: 8,
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 0,
+    right: 2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  profileSection: {
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  avatarContainer: {
+    marginBottom: 12,
+  },
+  avatarCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#FDE6BA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  avatarText: {
+    fontWeight: '900',
+    fontSize: 14,
+    color: '#333',
+    marginLeft: 4,
+  },
+  profileName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 4,
+  },
+  profileRole: {
+    fontSize: 14,
+    color: '#888',
+    fontWeight: '500',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginHorizontal: 32,
+    marginTop: 24,
+    marginBottom: 16,
+  },
   menuContainer: {
-    backgroundColor: colors.surface,
-    padding: 20,
-    borderRadius: 20,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
+    paddingHorizontal: 32,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingVertical: 18,
   },
-  menuIconBox: {
-    width: 36, height: 36,
-    borderRadius: 10,
-    justifyContent: 'center', alignItems: 'center',
-    marginRight: 12,
+  iconContainer: {
+    width: 30,
+    alignItems: 'flex-start',
   },
-  menuItemText: { flex: 1, fontSize: 16, color: colors.textDark, fontWeight: '500' },
+  menuItemText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#000',
+    marginLeft: 8,
+  },
 });

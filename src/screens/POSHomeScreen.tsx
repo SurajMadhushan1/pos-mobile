@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  SafeAreaView,
   Modal,
   FlatList,
   StyleSheet,
@@ -14,11 +13,13 @@ import {
   Keyboard,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
+import { useCurrency } from '../context/CurrencyContext';
 
 // ─── Inventory data ───────────────────────────────────────────────────────────
 
@@ -62,9 +63,9 @@ type CartItem = {
   originalPrice: number;  // price before discount
   price: number;          // effective unit price after discount
   qty: number;
-  discountValue: number;  // raw discount value entered (% or LKR)
+  discountValue: number;  // raw discount value entered (% or currency unit)
   discountMode: 'percent' | 'amount';
-  itemDiscountLKR: number; // total discount in LKR for this line
+  itemDiscountAmt: number; // total discount amount for this line
 };
 
 type InvoiceSession = {
@@ -79,6 +80,7 @@ type InvoiceSession = {
 
 export default function POSHomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { currencySymbol, currency } = useCurrency();
 
   // ── Invoices / Sessions ──────────────────────────────────────────────────────
   const [invoices, setInvoices] = useState<InvoiceSession[]>(() => [
@@ -260,7 +262,7 @@ export default function POSHomeScreen() {
 
   // Totals
   const subTotal = cart.reduce((s, i) => s + i.originalPrice * i.qty, 0);
-  const itemDiscountTotal = cart.reduce((s, i) => s + i.itemDiscountLKR, 0);
+  const itemDiscountTotal = cart.reduce((s, i) => s + i.itemDiscountAmt, 0);
   const afterItemDisc = subTotal - itemDiscountTotal;
 
   // Live preview inside the discount modal
@@ -324,10 +326,10 @@ export default function POSHomeScreen() {
     const prc = parseFloat(itemPrice) || selectedProduct.price;
     const disc = parseFloat(itemDiscount) || 0;
     const base = prc * qty;
-    const discLKR = discountMode === 'percent'
+    const discAmt = discountMode === 'percent'
       ? base * (disc / 100)
       : Math.min(disc, base);
-    const effTotal = base - discLKR;
+    const effTotal = base - discAmt;
     const effUnit = effTotal / qty;
 
     const newItem: CartItem = {
@@ -340,14 +342,14 @@ export default function POSHomeScreen() {
       qty,
       discountValue: disc,
       discountMode,
-      itemDiscountLKR: discLKR,
+      itemDiscountAmt: discAmt,
     };
 
     setCart(prev => {
       const idx = prev.findIndex(c => c.id === selectedProduct.id);
       if (idx > -1) {
         const updated = [...prev];
-        updated[idx] = { ...newItem, qty: prev[idx].qty + qty, itemDiscountLKR: prev[idx].itemDiscountLKR + discLKR };
+        updated[idx] = { ...newItem, qty: prev[idx].qty + qty, itemDiscountAmt: prev[idx].itemDiscountAmt + discAmt };
         return updated;
       }
       return [...prev, newItem];
@@ -362,20 +364,20 @@ export default function POSHomeScreen() {
       if (i.id !== id) return i;
       const newQty = Math.max(0.01, i.qty + delta);
       const base = i.originalPrice * newQty;
-      const discLKR = i.discountMode === 'percent'
+      const discAmt = i.discountMode === 'percent'
         ? base * (i.discountValue / 100)
         : Math.min(i.discountValue, base);
-      return { ...i, qty: newQty, itemDiscountLKR: discLKR };
+      return { ...i, qty: newQty, itemDiscountAmt: discAmt };
     }));
 
   const setExactQty = (id: string, qty: number) =>
     setCart(prev => prev.map(i => {
       if (i.id !== id) return i;
       const base = i.originalPrice * qty;
-      const discLKR = i.discountMode === 'percent'
+      const discAmt = i.discountMode === 'percent'
         ? base * (i.discountValue / 100)
         : Math.min(i.discountValue, base);
-      return { ...i, qty, itemDiscountLKR: discLKR };
+      return { ...i, qty, itemDiscountAmt: discAmt };
     }));
 
   const deleteItem = (id: string) => setCart(prev => prev.filter(i => i.id !== id));
@@ -386,17 +388,17 @@ export default function POSHomeScreen() {
     <View style={styles.cartItemCard}>
       <View style={styles.cartItemInfo}>
         <Text style={styles.cartItemName}>{item.name}</Text>
-        <Text style={styles.cartItemPrice}>{item.originalPrice.toFixed(2)} LKR × {item.qty} {item.unit}</Text>
+        <Text style={styles.cartItemPrice}>{item.originalPrice.toFixed(2)} {currencySymbol} × {item.qty} {item.unit}</Text>
         {/* Show applied discount as its own labelled line */}
-        {item.itemDiscountLKR > 0 && (
+        {item.itemDiscountAmt > 0 && (
           <View style={styles.discLineRow}>
             <Ionicons name="pricetag-outline" size={11} color="#10B981" />
             <Text style={styles.discLineText}>
               {item.name} discount{' '}
               {item.discountMode === 'percent'
                 ? `(${item.discountValue}%)`
-                : `(LKR ${item.discountValue})`
-              }{' '}→ -LKR {item.itemDiscountLKR.toFixed(2)}
+                : `({currencySymbol} ${item.discountValue})`
+              }{' '}→ -{currencySymbol} {item.itemDiscountAmt.toFixed(2)}
             </Text>
           </View>
         )}
@@ -432,7 +434,7 @@ export default function POSHomeScreen() {
     >
       <View style={{ flex: 1 }}>
         <Text style={styles.invName}>{item.name}</Text>
-        <Text style={styles.invMeta}>{item.price.toFixed(2)} LKR · {item.stock} {item.unit}</Text>
+        <Text style={styles.invMeta}>{item.price.toFixed(2)} {currencySymbol} · {item.stock} {item.unit}</Text>
       </View>
       {/* Separate Add button — keyboardShouldPersistTaps on FlatList handles the keyboard */}
       <TouchableOpacity
@@ -530,7 +532,7 @@ export default function POSHomeScreen() {
       <View style={styles.listHeaderRow}>
         <Text style={styles.listHeaderCol1}>Item Description</Text>
         <Text style={styles.listHeaderCol2}>Qty</Text>
-        <Text style={styles.listHeaderCol3}>Amount(LKR)</Text>
+        <Text style={styles.listHeaderCol3}>Amount({currencySymbol})</Text>
       </View>
 
       <FlatList
@@ -589,17 +591,17 @@ export default function POSHomeScreen() {
 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Sub Total</Text>
-              <Text style={styles.summaryValue}>LKR {subTotal.toFixed(2)}</Text>
+              <Text style={styles.summaryValue}>{currencySymbol} {subTotal.toFixed(2)}</Text>
             </View>
 
             {/* Per-item discounts broken out by product */}
-            {cart.filter(i => i.itemDiscountLKR > 0).map(i => (
+            {cart.filter(i => i.itemDiscountAmt > 0).map(i => (
               <View key={`disc-${i.id}`} style={styles.summaryRow}>
                 <Text style={[styles.summaryLabel, { color: '#10B981', flex: 1 }]} numberOfLines={1}>
                   {i.name}{' '}
-                  {i.discountMode === 'percent' ? `(${i.discountValue}%)` : `(LKR ${i.discountValue})`}
+                  {i.discountMode === 'percent' ? `(${i.discountValue}%)` : `({currencySymbol} ${i.discountValue})`}
                 </Text>
-                <Text style={[styles.summaryValue, { color: '#10B981' }]}>-LKR {i.itemDiscountLKR.toFixed(2)}</Text>
+                <Text style={[styles.summaryValue, { color: '#10B981' }]}>-{currencySymbol} {i.itemDiscountAmt.toFixed(2)}</Text>
               </View>
             ))}
 
@@ -607,7 +609,7 @@ export default function POSHomeScreen() {
             {itemDiscountTotal > 0 && (
               <View style={[styles.summaryRow, { borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 4 }]}>
                 <Text style={[styles.summaryLabel, { color: '#10B981', fontWeight: '700' }]}>Total Item Discounts</Text>
-                <Text style={[styles.summaryValue, { color: '#10B981', fontWeight: '700' }]}>-LKR {itemDiscountTotal.toFixed(2)}</Text>
+                <Text style={[styles.summaryValue, { color: '#10B981', fontWeight: '700' }]}>-{currencySymbol} {itemDiscountTotal.toFixed(2)}</Text>
               </View>
             )}
 
@@ -615,13 +617,13 @@ export default function POSHomeScreen() {
             {invoiceDiscountValue > 0 && (
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryLabel, { color: '#F59E0B' }]}>Invoice Discount</Text>
-                <Text style={[styles.summaryValue, { color: '#F59E0B' }]}>-LKR {invoiceDiscAmt.toFixed(2)}</Text>
+                <Text style={[styles.summaryValue, { color: '#F59E0B' }]}>-{currencySymbol} {invoiceDiscAmt.toFixed(2)}</Text>
               </View>
             )}
 
             <View style={[styles.summaryRow, { borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 6, marginTop: 4 }]}>
               <Text style={[styles.summaryLabel, { fontWeight: '700', color: '#1E293B' }]}>Total Payment</Text>
-              <Text style={[styles.summaryValue, { fontWeight: '700', color: '#A855F7' }]}>LKR {finalTotal.toFixed(2)}</Text>
+              <Text style={[styles.summaryValue, { fontWeight: '700', color: '#A855F7' }]}>{currencySymbol} {finalTotal.toFixed(2)}</Text>
             </View>
           </View>
         )}
@@ -629,7 +631,7 @@ export default function POSHomeScreen() {
         <View style={styles.footerRow}>
           <View style={styles.footerTotalBox}>
             <Text style={styles.footerTotalLabel}>Total</Text>
-            <Text style={styles.footerTotalValue}>LKR {finalTotal.toFixed(2)}</Text>
+            <Text style={styles.footerTotalValue}>{currencySymbol} {finalTotal.toFixed(2)}</Text>
           </View>
           <TouchableOpacity
             style={styles.generateBtn}
@@ -734,7 +736,7 @@ export default function POSHomeScreen() {
                   showsVerticalScrollIndicator={false}
                 >
                   <Text style={styles.detailTitle}>
-                    {selectedProduct.name} · {selectedProduct.price.toFixed(1)} LKR / {selectedProduct.unit}
+                    {selectedProduct.name} · {selectedProduct.price.toFixed(1)} {currencySymbol} / {selectedProduct.unit}
                   </Text>
                   <Text style={styles.detailSub}>Category: {selectedProduct.category}</Text>
                   <View style={styles.detailDivider} />
@@ -790,7 +792,7 @@ export default function POSHomeScreen() {
                         keyboardType="numeric"
                         selectTextOnFocus
                       />
-                      <Text style={styles.detailUnit}>LKR</Text>
+                      <Text style={styles.detailUnit}>{currencySymbol}</Text>
                     </View>
                   </View>
 
@@ -809,7 +811,7 @@ export default function POSHomeScreen() {
                       <Text style={[styles.detailInput, { flex: 1, color: '#10B981' }]}>
                         {previewTotal().toFixed(2)}
                       </Text>
-                      <Text style={[styles.detailUnit, { color: '#10B981' }]}>LKR</Text>
+                      <Text style={[styles.detailUnit, { color: '#10B981' }]}>{currencySymbol}</Text>
                     </View>
                   </View>
 
@@ -817,7 +819,7 @@ export default function POSHomeScreen() {
                   <View style={styles.discountSection}>
                     <Text style={[styles.detailLabel, { marginBottom: 8 }]}>{`Product\nDiscount`}</Text>
 
-                    {/* Toggle % / LKR */}
+                    {/* Toggle % / {currencySymbol} */}
                     <View style={styles.discToggleWrap}>
                       <TouchableOpacity
                         style={[styles.discToggleBtn, discountMode === 'percent' && styles.discToggleBtnActive]}
@@ -832,7 +834,7 @@ export default function POSHomeScreen() {
                         onPress={() => { setDiscountMode('amount'); setItemDiscount('0'); }}
                       >
                         <Text style={[styles.discToggleTxt, discountMode === 'amount' && styles.discToggleTxtActive]}>
-                          LKR Amount
+                          {currencySymbol} Amount
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -864,7 +866,7 @@ export default function POSHomeScreen() {
                     {/* Live discount preview */}
                     {previewDisc() > 0 && (
                       <Text style={styles.discPreview}>
-                        Saving LKR {previewDisc().toFixed(2)} on this item
+                        Saving {currencySymbol} {previewDisc().toFixed(2)} on this item
                       </Text>
                     )}
                   </View>
@@ -922,7 +924,7 @@ export default function POSHomeScreen() {
             {/* Current bill value */}
             <View style={styles.discModalInfoRow}>
               <Text style={styles.discModalInfoLabel}>Bill Value</Text>
-              <Text style={styles.discModalInfoValue}>LKR {afterItemDisc.toFixed(2)}</Text>
+              <Text style={styles.discModalInfoValue}>{currencySymbol} {afterItemDisc.toFixed(2)}</Text>
             </View>
 
             {/* Discount type toggle */}
@@ -941,7 +943,7 @@ export default function POSHomeScreen() {
                 onPress={() => { setInvDiscType('amount'); setCustomDiscount(''); }}
               >
                 <Text style={[styles.discToggleTxt, invDiscType === 'amount' && styles.discToggleTxtActive]}>
-                  LKR Amount
+                  {currencySymbol} Amount
                 </Text>
               </TouchableOpacity>
             </View>
@@ -963,11 +965,11 @@ export default function POSHomeScreen() {
               <View style={styles.discModalPreviewBox}>
                 <View style={styles.discModalPreviewRow}>
                   <Text style={styles.discModalPreviewLabel}>Discount</Text>
-                  <Text style={[styles.discModalPreviewVal, { color: '#EF4444' }]}>-LKR {invDiscAmt.toFixed(2)}</Text>
+                  <Text style={[styles.discModalPreviewVal, { color: '#EF4444' }]}>-{currencySymbol} {invDiscAmt.toFixed(2)}</Text>
                 </View>
                 <View style={[styles.discModalPreviewRow, { marginTop: 6 }]}>
                   <Text style={[styles.discModalPreviewLabel, { fontWeight: '800', color: '#1E293B' }]}>Final Amount</Text>
-                  <Text style={[styles.discModalPreviewVal, { fontWeight: '800', color: '#A855F7', fontSize: 17 }]}>LKR {invDiscFinal.toFixed(2)}</Text>
+                  <Text style={[styles.discModalPreviewVal, { fontWeight: '800', color: '#A855F7', fontSize: 17 }]}>{currencySymbol} {invDiscFinal.toFixed(2)}</Text>
                 </View>
               </View>
             )}
@@ -1312,13 +1314,13 @@ export default function POSHomeScreen() {
                     </View>
                     <Text style={styles.qrLabel}>{qrSubTab} QR Code</Text>
                     {qrSubTab === 'Dynamic' && (
-                      <Text style={styles.qrAmount}>LKR {finalTotal.toFixed(2)}</Text>
+                      <Text style={styles.qrAmount}>{currencySymbol} {finalTotal.toFixed(2)}</Text>
                     )}
                   </View>
                   <Text style={styles.qrHint}>
                     {qrSubTab === 'Static'
                       ? 'Customer scans this QR to pay any amount'
-                      : `QR pre-loaded with LKR ${finalTotal.toFixed(2)}`}
+                      : `QR pre-loaded with {currencySymbol} ${finalTotal.toFixed(2)}`}
                   </Text>
                 </View>
 

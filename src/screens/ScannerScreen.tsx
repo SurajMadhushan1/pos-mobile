@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, Button, TouchableOpacity } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useAudioPlayer } from 'expo-audio';
 import { colors } from '../theme/colors';
 
 export default function ScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+  const beepPlayer = useAudioPlayer('https://www.soundjay.com/buttons/beep-07a.mp3');
 
   if (!permission) {
     return <View style={styles.container} />;
@@ -25,7 +27,9 @@ export default function ScannerScreen() {
   const handleBarcodeScanned = ({ type, data }: { type: string; data: string }) => {
     if (!scanned) {
       setScanned(true);
-      alert(`Barcode Scanned!\nType: ${type}\nData: ${data}`); // Dummy feedback for now
+      beepPlayer.play();
+      // Dummy action: log or display data later
+      console.log(`Scanned ${type}: ${data}`);
       // Reset scan state after a delay or navigate back
       setTimeout(() => setScanned(false), 2000);
     }
