@@ -8,6 +8,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Animated,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,45 +18,52 @@ import { colors } from '../theme/colors';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/types';
+import { verifyOtp, sendOtp } from '../services/authService';
 
-type OtpNavProp = NativeStackNavigationProp<RootStackParamList, 'OtpVerify'>;
+type OtpNavProp   = NativeStackNavigationProp<RootStackParamList, 'OtpVerify'>;
 type OtpRouteProp = RouteProp<RootStackParamList, 'OtpVerify'>;
 
 interface Props {
   navigation: OtpNavProp;
-  route: OtpRouteProp;
+  route:      OtpRouteProp;
 }
 
-const OTP_LENGTH = 6;
+const OTP_LENGTH     = 6;
 const RESEND_SECONDS = 30;
 
 export default function OtpVerifyScreen({ navigation, route }: Props) {
-  const { phone, context } = route.params;
-  const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
-  const [error, setError] = useState('');
+  const { phone, context, pendingSignupData } = route.params;
+
+  const [otp, setOtp]           = useState<string[]>(Array(OTP_LENGTH).fill(''));
+  const [error, setError]       = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [countdown, setCountdown] = useState(RESEND_SECONDS);
   const [canResend, setCanResend] = useState(false);
 
-  const inputRefs = useRef<(TextInput | null)[]>([]);
-  const shakeAnim = useRef(new Animated.Value(0)).current;
-  const successScale = useRef(new Animated.Value(0)).current;
+  const inputRefs   = useRef<(TextInput | null)[]>([]);
+  const shakeAnim   = useRef(new Animated.Value(0)).current;
 
-  // Countdown timer
+  // ── Countdown timer ───────────────────────────────────────────────────────
+
   useEffect(() => {
     if (countdown <= 0) { setCanResend(true); return; }
     const t = setTimeout(() => setCountdown(c => c - 1), 1000);
     return () => clearTimeout(t);
   }, [countdown]);
 
+  // ── Shake animation ────────────────────────────────────────────────────────
+
   const shake = () => {
     Animated.sequence([
-      Animated.timing(shakeAnim, { toValue: 10, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 10,  duration: 60, useNativeDriver: true }),
       Animated.timing(shakeAnim, { toValue: -10, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 8, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -8, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 0, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 8,   duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -8,  duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0,   duration: 60, useNativeDriver: true }),
     ]).start();
   };
+
+  // ── OTP input handlers ─────────────────────────────────────────────────────
 
   const handleChange = (text: string, index: number) => {
     setError('');
@@ -62,7 +71,6 @@ export default function OtpVerifyScreen({ navigation, route }: Props) {
     const newOtp = [...otp];
     newOtp[index] = digit;
     setOtp(newOtp);
-    // Auto-advance to next box
     if (digit && index < OTP_LENGTH - 1) {
       inputRefs.current[index + 1]?.focus();
     }
@@ -77,30 +85,52 @@ export default function OtpVerifyScreen({ navigation, route }: Props) {
     }
   };
 
-  const handleVerify = () => {
+  // ── Verify ─────────────────────────────────────────────────────────────────
+
+  const handleVerify = async () => {
     const code = otp.join('');
     if (code.length < OTP_LENGTH) {
       setError('Please enter the complete 6-digit code.');
       shake();
       return;
     }
-    // TODO: Call API to verify OTP
-    // For now simulate success and navigate to correct place
-    if (context === 'signup') {
-      navigation.replace('Login');
-    } else {
-      navigation.replace('MainTabs', { screen: 'Shop' });
+
+    setIsLoading(true);
+    setError('');
+    try {
+      await verifyOtp(phone, code);
+
+      if (context === 'signup') {
+        // OTP verified — proceed to shop info step (step 2 of Signup)
+        navigation.replace('Signup', { step2Data: pendingSignupData });
+      } else {
+        // Login context — go straight into the app
+        navigation.replace('MainTabs', { screen: 'Shop' });
+      }
+    } catch (err: any) {
+      const msg = err.message ?? 'Invalid or expired OTP. Please try again.';
+      setError(msg);
+      shake();
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleResend = () => {
+  // ── Resend ─────────────────────────────────────────────────────────────────
+
+  const handleResend = async () => {
     if (!canResend) return;
     setOtp(Array(OTP_LENGTH).fill(''));
     setError('');
     setCountdown(RESEND_SECONDS);
     setCanResend(false);
     inputRefs.current[0]?.focus();
-    // TODO: Call API to resend OTP
+
+    try {
+      await sendOtp(phone);
+    } catch (err: any) {
+      Alert.alert('Resend Failed', err.message ?? 'Could not send OTP. Please try again.');
+    }
   };
 
   const filled = otp.filter(Boolean).length;
@@ -111,7 +141,7 @@ export default function OtpVerifyScreen({ navigation, route }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.inner}
       >
-        {/* Header */}
+        {/* Back button */}
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.textMuted} />
         </TouchableOpacity>
@@ -148,6 +178,7 @@ export default function OtpVerifyScreen({ navigation, route }: Props) {
               textAlign="center"
               selectionColor={colors.primary}
               autoFocus={i === 0}
+              editable={!isLoading}
             />
           ))}
         </Animated.View>
@@ -164,15 +195,24 @@ export default function OtpVerifyScreen({ navigation, route }: Props) {
           onPress={handleVerify}
           activeOpacity={0.85}
           style={styles.verifyBtnWrap}
+          disabled={isLoading}
         >
           <LinearGradient
             colors={colors.gradients.primary}
-            style={[styles.verifyBtn, filled < OTP_LENGTH && styles.verifyBtnDisabled]}
+            style={[
+              styles.verifyBtn,
+              (filled < OTP_LENGTH || isLoading) && styles.verifyBtnDisabled,
+            ]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
-            <Text style={styles.verifyBtnText}>Verify & Continue</Text>
-            <Ionicons name="arrow-forward" size={18} color="#FFF" style={{ marginLeft: 6 }} />
+            {isLoading
+              ? <ActivityIndicator color="#FFF" size="small" />
+              : <>
+                  <Text style={styles.verifyBtnText}>Verify &amp; Continue</Text>
+                  <Ionicons name="arrow-forward" size={18} color="#FFF" style={{ marginLeft: 6 }} />
+                </>
+            }
           </LinearGradient>
         </TouchableOpacity>
 
@@ -272,6 +312,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     marginBottom: 20,
+    textAlign: 'center',
   },
 
   // Verify Button

@@ -8,10 +8,20 @@ export type MainTabParamList = {
   Profile: undefined;
 };
 
+export interface PendingSignupData {
+  phone: string;
+  password: string;
+  confirmPassword: string;
+}
+
 export type RootStackParamList = {
   Login: undefined;
-  Signup: undefined;
-  OtpVerify: { phone: string; context: 'signup' | 'login' };
+  Signup: { step2Data?: PendingSignupData } | undefined;
+  OtpVerify: {
+    phone: string;
+    context: 'signup' | 'login';
+    pendingSignupData?: PendingSignupData;
+  };
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   Receipt: {
     total: number;

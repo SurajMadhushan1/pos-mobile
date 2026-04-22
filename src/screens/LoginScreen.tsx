@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
-  KeyboardAvoidingView, 
-  Platform
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
+import { loginUser, saveAuthData } from '../services/authService';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
@@ -22,18 +25,30 @@ interface Props {
 }
 
 export default function LoginScreen({ navigation }: Props) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [phone, setPhone]           = useState('');
+  const [password, setPassword]     = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading]   = useState(false);
 
-  const handleLogin = () => {
-    // Navigate to OTP verification before entering the app
-    navigation.navigate('OtpVerify', { phone: email.trim() || '+94XXXXXXXXX', context: 'login' });
+  const handleLogin = async () => {
+    if (!phone.trim())   { Alert.alert('Required', 'Please enter your phone number.'); return; }
+    if (!password.trim()) { Alert.alert('Required', 'Please enter your password.'); return; }
+
+    setIsLoading(true);
+    try {
+      const result = await loginUser(phone.trim(), password);
+      await saveAuthData(result.token, result.user, result.shop);
+      navigation.replace('MainTabs', { screen: 'Shop' });
+    } catch (error: any) {
+      Alert.alert('Login Failed', error.message ?? 'Invalid phone number or password.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.content}
       >
@@ -51,19 +66,22 @@ export default function LoginScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.formContainer}>
+          {/* Phone */}
           <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+            <Ionicons name="call-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="Email Address"
+              placeholder="Phone Number"
               placeholderTextColor={colors.textMuted}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
               autoCapitalize="none"
+              editable={!isLoading}
             />
           </View>
 
+          {/* Password */}
           <View style={styles.inputContainer}>
             <Ionicons name="lock-closed-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
             <TextInput
@@ -73,12 +91,13 @@ export default function LoginScreen({ navigation }: Props) {
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
+              editable={!isLoading}
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              <Ionicons 
-                name={showPassword ? "eye-off-outline" : "eye-outline"} 
-                size={20} 
-                color={colors.primary} 
+              <Ionicons
+                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+                color={colors.primary}
               />
             </TouchableOpacity>
           </View>
@@ -87,23 +106,26 @@ export default function LoginScreen({ navigation }: Props) {
             <Text style={styles.forgotPasswordText}>Forgot?</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={handleLogin}>
+          <TouchableOpacity onPress={handleLogin} disabled={isLoading}>
             <LinearGradient
               colors={colors.gradients.primary}
-              style={styles.loginButton}
+              style={[styles.loginButton, isLoading && { opacity: 0.7 }]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
             >
-              <Text style={styles.loginButtonText}>Sign In</Text>
+              {isLoading
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Text style={styles.loginButtonText}>Sign In</Text>
+              }
             </LinearGradient>
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.footer}>
           <Text style={styles.footerText}>Optimized for rapid checkout</Text>
           <View style={styles.signUpRow}>
             <Text style={styles.signUpPrompt}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
+            <TouchableOpacity onPress={() => navigation.navigate('Signup', undefined)}>
               <Text style={styles.signUpLink}>Sign Up</Text>
             </TouchableOpacity>
           </View>

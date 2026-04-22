@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,11 +17,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
-import { registerShop } from '../services/authService';
+import type { RouteProp } from '@react-navigation/native';
+import { RootStackParamList, PendingSignupData } from '../navigation/types';
+import { sendOtp, registerShop, saveAuthData } from '../services/authService';
 
 type SignupNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Signup'>;
-interface Props { navigation: SignupNavigationProp; }
+type SignupRouteProp = RouteProp<RootStackParamList, 'Signup'>;
+interface Props {
+  navigation: SignupNavigationProp;
+  route:      SignupRouteProp;
+}
 
 // ─── Input Row ────────────────────────────────────────────────────────────────
 
@@ -61,26 +66,35 @@ function InputRow({
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function SignupScreen({ navigation }: Props) {
-  const [step, setStep] = useState<1 | 2>(1);
+export default function SignupScreen({ navigation, route }: Props) {
+  // Detect if we were redirected back here after OTP verification
+  const step2Data = route.params?.step2Data as PendingSignupData | undefined;
+  const [step, setStep] = useState<1 | 2>(step2Data ? 2 : 1);
 
-  // Step 1 — Credentials
-  const [phone, setPhone]           = useState('');
-  const [password, setPassword]     = useState('');
-  const [confirmPwd, setConfirmPwd] = useState('');
+  // Step 1 — Credentials (pre-filled if returning from OTP screen)
+  const [phone, setPhone]           = useState(step2Data?.phone ?? '');
+  const [password, setPassword]     = useState(step2Data?.password ?? '');
+  const [confirmPwd, setConfirmPwd] = useState(step2Data?.confirmPassword ?? '');
   const [showPwd, setShowPwd]       = useState(false);
   const [showCPwd, setShowCPwd]     = useState(false);
 
   // Step 2 — Shop info
-  const [shopName, setShopName]         = useState('');
-  const [ownerName, setOwnerName]       = useState('');
-  const [shopAddress, setShopAddress]   = useState('');
-  const [regNumber, setRegNumber]       = useState('');
-  const [dealerCode, setDealerCode]     = useState('');
+  const [shopName, setShopName]       = useState('');
+  const [ownerName, setOwnerName]     = useState('');
+  const [shopAddress, setShopAddress] = useState('');
+  const [regNumber, setRegNumber]     = useState('');
+  const [dealerCode, setDealerCode]   = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  // If we've come back from OTP verification, jump straight to step 2
+  useEffect(() => {
+    if (step2Data) {
+      fadeAnim.setValue(1);
+    }
+  }, []);
 
   const animateStep = (nextStep: 1 | 2) => {
     Animated.sequence([
@@ -90,29 +104,63 @@ export default function SignupScreen({ navigation }: Props) {
     setStep(nextStep);
   };
 
-  // ── Validation & Navigation ───────────────────────────────────────────────
+  // ── Step 1: Validate → Send OTP → Go to OTP screen ────────────────────────
 
-  const handleNext = () => {
-    if (!phone.trim())          { Alert.alert('Required', 'Please enter your phone number.'); return; }
-    if (phone.length < 9)       { Alert.alert('Invalid', 'Please enter a valid phone number.'); return; }
-    if (password.length < 6)    { Alert.alert('Weak Password', 'Password must be at least 6 characters.'); return; }
-    if (password !== confirmPwd){ Alert.alert('Mismatch', 'Passwords do not match.'); return; }
-    animateStep(2);
+  const handleNext = async () => {
+    if (!phone.trim())           { Alert.alert('Required', 'Please enter your phone number.'); return; }
+    if (phone.trim().length < 9) { Alert.alert('Invalid', 'Please enter a valid phone number.'); return; }
+    if (password.length < 6)     { Alert.alert('Weak Password', 'Password must be at least 6 characters.'); return; }
+    if (password !== confirmPwd) { Alert.alert('Mismatch', 'Passwords do not match.'); return; }
+
+    setIsLoading(true);
+    try {
+      await sendOtp(phone.trim());
+
+      // Navigate to OTP screen, carrying credentials so step 2 can use them
+      navigation.navigate('OtpVerify', {
+        phone: phone.trim(),
+        context: 'signup',
+        pendingSignupData: {
+          phone:           phone.trim(),
+          password,
+          confirmPassword: confirmPwd,
+        },
+      });
+    } catch (error: any) {
+      Alert.alert('Error', error.message ?? 'Failed to send OTP. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  // ── Step 2: Validate Shop Info → Register ─────────────────────────────────
 
   const handleCreate = async () => {
     if (!shopName.trim()) { Alert.alert('Required', 'Please enter your shop name.'); return; }
 
+    // Use the credentials that came through from OTP verification
+    const credentials = step2Data ?? { phone, password, confirmPassword: confirmPwd };
+
     setIsLoading(true);
     try {
-      await registerShop({
-        shopName: shopName.trim(),
-        phone:    phone.trim(),
-        password,
+      const result = await registerShop({
+        phone:           credentials.phone,
+        password:        credentials.password,
+        confirmPassword: credentials.confirmPassword,
+        shop: {
+          name:               shopName.trim(),
+          registrationNumber: regNumber.trim() || undefined,
+          ownerName:          ownerName.trim() || undefined,
+          address:            shopAddress.trim() || undefined,
+          dealerCode:         dealerCode.trim() || undefined,
+        },
       });
 
-      // Navigate to OTP verification
-      navigation.replace('OtpVerify', { phone: phone.trim(), context: 'signup' });
+      // Persist JWT + profile locally
+      await saveAuthData(result.token, result.user, result.shop);
+
+      // Enter the app
+      navigation.replace('MainTabs', { screen: 'Shop' });
     } catch (error: any) {
       Alert.alert('Registration Failed', error.message ?? 'Something went wrong. Please try again.');
     } finally {
@@ -121,8 +169,12 @@ export default function SignupScreen({ navigation }: Props) {
   };
 
   const handleBack = () => {
-    if (step === 2) { animateStep(1); }
-    else            { navigation.goBack(); }
+    if (step === 2 && !step2Data) {
+      // Still on step 2 without OTP path — go back to step 1 within screen
+      animateStep(1);
+    } else {
+      navigation.goBack();
+    }
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -203,7 +255,7 @@ export default function SignupScreen({ navigation }: Props) {
                     </TouchableOpacity>
                   }
                 />
-                {/* Password strength hint */}
+                {/* Password strength bar */}
                 {password.length > 0 && (
                   <View style={styles.strengthBar}>
                     <View style={[
@@ -222,6 +274,14 @@ export default function SignupScreen({ navigation }: Props) {
             {/* ── STEP 2: Shop Info ──────────────────────────────────── */}
             {step === 2 && (
               <>
+                {/* Phone verified badge */}
+                <View style={styles.verifiedBadge}>
+                  <Ionicons name="shield-checkmark" size={16} color="#10B981" />
+                  <Text style={styles.verifiedText}>
+                    Phone verified: {step2Data?.phone ?? phone}
+                  </Text>
+                </View>
+
                 <InputRow
                   icon="storefront-outline"
                   placeholder="Shop Name *"
@@ -257,14 +317,13 @@ export default function SignupScreen({ navigation }: Props) {
                   autoCapitalize="characters"
                 />
                 <Text style={styles.dealerNote}>
-                  (If you don't have the Dealer Code, Please disregard this field.)
+                  (If you don't have the Dealer Code, please disregard this field.)
                 </Text>
 
-                {/* API payload preview (subtle info) */}
                 <View style={styles.infoBox}>
                   <Ionicons name="information-circle-outline" size={14} color="#6366F1" />
                   <Text style={styles.infoText}>
-                    Shop name, phone & password will be used to create your account.
+                    Shop name, phone &amp; password will be used to create your account.
                   </Text>
                 </View>
               </>
@@ -287,10 +346,22 @@ export default function SignupScreen({ navigation }: Props) {
               </TouchableOpacity>
 
               {step === 1 ? (
-                <TouchableOpacity onPress={handleNext} activeOpacity={0.85}>
-                  <LinearGradient colors={colors.gradients.primary} style={styles.primaryBtn}>
-                    <Text style={styles.primaryBtnText}>Next</Text>
-                    <Ionicons name="arrow-forward" size={16} color="#fff" style={{ marginLeft: 4 }} />
+                <TouchableOpacity
+                  onPress={handleNext}
+                  activeOpacity={0.85}
+                  disabled={isLoading}
+                >
+                  <LinearGradient
+                    colors={colors.gradients.primary}
+                    style={[styles.primaryBtn, isLoading && { opacity: 0.7 }]}
+                  >
+                    {isLoading
+                      ? <ActivityIndicator color="#fff" size="small" />
+                      : <>
+                          <Text style={styles.primaryBtnText}>Next</Text>
+                          <Ionicons name="arrow-forward" size={16} color="#fff" style={{ marginLeft: 4 }} />
+                        </>
+                    }
                   </LinearGradient>
                 </TouchableOpacity>
               ) : (
@@ -375,6 +446,13 @@ const styles = StyleSheet.create({
     fontSize: 19, fontWeight: '800', color: '#1E293B',
     marginBottom: 22, textAlign: 'center', letterSpacing: -0.3,
   },
+
+  verifiedBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#ECFDF5', borderRadius: 10,
+    padding: 10, marginBottom: 16,
+  },
+  verifiedText: { fontSize: 13, color: '#065F46', fontWeight: '600' },
 
   inputContainer: {
     flexDirection: 'row',

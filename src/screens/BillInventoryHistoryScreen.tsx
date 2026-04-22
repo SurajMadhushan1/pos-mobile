@@ -55,12 +55,12 @@ export default function BillInventoryHistoryScreen() {
         renderItem={({ item }) => (
           <TouchableOpacity 
             style={styles.billCard}
-            onPress={() => navigation.navigate('Receipt' as never, {
+            onPress={() => (navigation as any).navigate('Receipt', {
                total: parseFloat(item.amount),
                subTotal: parseFloat(item.amount),
                items: [{ name: 'Sample Item for ' + item.invoiceNo, qty: 1, price: parseFloat(item.amount) }],
                paymentMethod: 'Cash'
-            } as never)}
+            })}
           >
             <View style={styles.billCardLeft}>
               <View style={styles.invIcon}>

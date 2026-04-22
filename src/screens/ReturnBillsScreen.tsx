@@ -107,7 +107,7 @@ export default function ReturnBillsScreen() {
               return;
             }
             const totalReturnAmt = -(qtyNum * unitPrice);
-            navigation.navigate('Receipt' as never, {
+            (navigation as any).navigate('Receipt', {
               total: totalReturnAmt,
               subTotal: totalReturnAmt,
               itemDiscountTotal: 0,
@@ -124,7 +124,7 @@ export default function ReturnBillsScreen() {
               ],
               paymentMethod: 'Cash',
               paidAmount: totalReturnAmt
-            } as never);
+            });
           }}
         >
           <Text style={styles.issueBtnText}>Issue Bill</Text>
